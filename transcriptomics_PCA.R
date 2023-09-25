@@ -158,7 +158,7 @@ plot_colored_PCA_cont <- function(data, color){
   return(p)
 }
 
-# Tidy up column types in PCAdata for better plotting 
+# Tidy up column types in PCAdata for better plotting ####
 colnames(PCAdata)
 interesting_metadata
 
@@ -186,6 +186,7 @@ interesting_metadata_cont <- interesting_metadata[c(2,6,8,9)]
 interesting_metadata_cont
 PCAdata$age <- as.numeric(as.character(PCAdata$age))
 
+# Plot discrete and continuous lists #### 
 ## prints out the plots as in the loop
 lapply(interesting_metadata_discrete, FUN = plot_colored_PCA_discrete, data = PCAdata) 
 lapply(interesting_metadata_cont, FUN = plot_colored_PCA_cont, data = PCAdata) 
@@ -261,6 +262,7 @@ nrow(Kalantar_counts_fornames_gene_symbols)
 nrow(Kalantar_counts_fornames)
 
 Kalantar_counts_fornames <- full_join(Kalantar_counts_fornames, Kalantar_counts_fornames_gene_symbols, by = c("gene_id" = "ensembl_gene_id"))
+Kalantar_counts_fornames
 
 # Subset for genes in vascular permeability and top PCA genes 
 Kalantar_counts_vascperm <- Kalantar_counts_fornames %>% 
