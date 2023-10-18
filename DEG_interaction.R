@@ -237,6 +237,52 @@ ggsave("top_10_genes_vaso_group_cond.jpeg")
 # Saving 6.65 x 5.15 in image
 # font italics doesn't work, Ubuntu does not have the fonts working, would need to install 
 
+# DEG Condition 2 - new column for group & vasopressors #### 
+
+# Make a condition column 
+Kalantar_metadata
+Kalantar_metadata$condition <- paste0(Kalantar_metadata$group,"_",Kalantar_metadata$on_pressors)
+unique(Kalantar_metadata$condition)
+
+# Make a condition2 column - sepsis alltogether 
+Kalantar_metadata$condition2 <- Kalantar_metadata$condition
+unique(Kalantar_metadata$condition2)
+Kalantar_metadata$condition2 <- gsub("SepsisBSI_", "Sepsis_", Kalantar_metadata$condition2)
+Kalantar_metadata$condition2 <- gsub("SepsisNon-BSI_", "Sepsis_", Kalantar_metadata$condition2)
+
+# Deseq object 
+dds_condition <- DESeqDataSetFromMatrix(countData = Kalantar_counts_intersected,
+                                        colData = Kalantar_metadata, 
+                                        design = ~ condition2) # issue with group having - sign 
+
+nrow(dds_condition) #27097 
+
+# Outliers remove 
+keep <- rowSums(counts(dds_condition)) >= 10
+dds_condition <- dds_condition[keep,]
+nrow(dds_condition) 
+#[1] 27065 
+
+# DESeq 
+
+dds_condition <- estimateSizeFactors(dds_condition) 
+dds_condition <- DESeq(dds_condition)
+
+resultsNames(dds_condition) 
+
+# [1] "Intercept"                                "condition2_No.Sepsis_yes_vs_No.Sepsis_no"
+# [3] "condition2_Sepsis_no_vs_No.Sepsis_no"     "condition2_Sepsis_yes_vs_No.Sepsis_no"
+
+
+# Get results per group 
+results_vaso_sepsis_cond <- results(dds_condition, contrast=c("condition2","Sepsis_yes","Sepsis_no"))
+sum(results_vaso_sepsis_bsi_cond$padj < 0.05, na.rm=TRUE) # 0 
+
+results_vaso_no_sepsis_cond <- results(dds_condition, name="condition2_No.Sepsis_yes_vs_No.Sepsis_no")
+sum(results_vaso_no_sepsis_cond$padj < 0.05, na.rm=TRUE) # 14 
+# not much going on, or the intercept is in my way??? 
+
+
 
 # RESULTS NOTE #### 
 # ~~~ Using interaction terms ~~~

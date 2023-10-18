@@ -231,10 +231,6 @@ genes_vasc_perm <- c("PECAM1", "ICAM1", "VCAM1", "DPP3", "ANGPT2", "IL6", "ALB",
 # SELE also LYAM2 
 # CD142 also F3 - tissue factor 
 
-top_genes2
-gene_names
-genes_vasc_perm
-
 # Biomart for vascular permeability genes 
 
 gene_names_vasc_perm <- getBM(filters= "hgnc_symbol", attributes= c("hgnc_symbol","description"),
@@ -242,7 +238,7 @@ gene_names_vasc_perm <- getBM(filters= "hgnc_symbol", attributes= c("hgnc_symbol
 gene_names_vasc_perm # missing CD142 and VEGF 
 write.csv(gene_names_vasc_perm, "genes_vascular_permeability.csv")
 
-# Create a gene counts matrix with gene symbols 
+# Create a gene counts matrix with gene symbols (counts_data for function make_loadings_pcadata)
 
 Kalantar_counts_intersected
 
@@ -264,9 +260,7 @@ nrow(Kalantar_counts_fornames)
 Kalantar_counts_fornames <- full_join(Kalantar_counts_fornames, Kalantar_counts_fornames_gene_symbols, by = c("gene_id" = "ensembl_gene_id"))
 Kalantar_counts_fornames
 
-# Subset for genes in vascular permeability and top PCA genes 
-Kalantar_counts_vascperm <- Kalantar_counts_fornames %>% 
-  filter(hgnc_symbol %in% genes_vasc_perm)
+# Subset for genes top PCA genes (vascular permeability using function, in a separate file)
 
 Kalantar_counts_loadings <- Kalantar_counts_fornames %>% 
   filter(hgnc_symbol %in% gene_names$hgnc_symbol)
@@ -274,15 +268,6 @@ Kalantar_counts_loadings <- Kalantar_counts_fornames %>%
 # Merge with PCA data 
 
 PCAdata$name # sample names 
-
-# Transpose and clean - vasc perm 
-Kalantar_counts_vascperm_tojoin <- t(Kalantar_counts_vascperm)
-colnames(Kalantar_counts_vascperm_tojoin) <- Kalantar_counts_vascperm_tojoin["hgnc_symbol",]
-Kalantar_counts_vascperm_tojoin <- as.data.frame(Kalantar_counts_vascperm_tojoin)
-Kalantar_counts_vascperm_tojoin$name <- rownames(Kalantar_counts_vascperm_tojoin)
-
-Kalantar_counts_vascperm_tojoin <- slice(Kalantar_counts_vascperm_tojoin, 1:(n() - 2))  
-PCAdata_vascperm <- full_join(PCAdata, Kalantar_counts_vascperm_tojoin, by = "name")
 
 # Transpose and clean - top loadings 
 Kalantar_counts_loadings_tojoin <- t(Kalantar_counts_loadings)
@@ -295,28 +280,15 @@ PCAdata_loadings <- full_join(PCAdata, Kalantar_counts_loadings_tojoin, by = "na
 
 # Plot vascular permeability genes #### 
 
-plot_list_vascperm <- lapply(genes_vasc_perm[-c(12,14)], FUN = plot_colored_PCA_cont, data = PCAdata_vascperm) 
+# Already log transformed 
+plot_list_vascperm <- lapply(gene_names_vasc_perm[["hgnc_symbol"]], FUN = plot_colored_PCA_cont, data = PCAdata_vasc_perm) 
 plot_list_vascperm[[1]]
 # ! Binned scales only support continuous data 
 # Need to check the types of data the gene counts are! 
-lapply(PCAdata_vascperm, typeof)
-
-genes_vasc_perm[-c(12,14)] %in% colnames(PCAdata_vascperm)[19:length(colnames(PCAdata_vascperm))]
-PCAdata_vascperm[, 19:ncol(PCAdata_vascperm)] <- lapply(19:ncol(PCAdata_vascperm), function(x) as.numeric(PCAdata_vascperm[[x]]))
 
 ggpubr::ggarrange(plotlist = plot_list_vascperm)
 ggsave("PCA_multi_color_vscperm.jpeg", scale = 2)
 # Saving 27.3 x 15.4 in image
-
-# Seems with raw counts there is some outlier stuff - normalise counts? merge with vst normalised counts? 
-
-PCAdata_vascperm_log <- PCAdata_vascperm
-PCAdata_vascperm_log[, 19:ncol(PCAdata_vascperm_log)] <- lapply(19:ncol(PCAdata_vascperm_log), function(x) log10(PCAdata_vascperm_log[[x]] + 1))
-
-plot_list_vascperm_log <- lapply(genes_vasc_perm[-c(12,14)], FUN = plot_colored_PCA_cont, data = PCAdata_vascperm_log) 
-
-ggpubr::ggarrange(plotlist = plot_list_vascperm_log)
-ggsave("PCA_multi_color_vscperm_log.jpeg", width = 27.3, height = 15.4, units = "in")
 
 # Plot top genes #### 
 
@@ -399,11 +371,13 @@ ggsave("PCA_metadata_cont_log_nof.jpeg")
 
 # Vasc perm 
 
-plot_list_vascperm_log_nof <- lapply(genes_vasc_perm[-c(12,14)], FUN = plot_colored_PCA_cont_nofacet, data = PCAdata_vascperm_log) 
+plot_list_vascperm_log_nof <- lapply(gene_names_vasc_perm[["hgnc_symbol"]], 
+                                     FUN = plot_colored_PCA_cont_nofacet, 
+                                     data = PCAdata_vasc_perm) 
 plot_list_vascperm_log_nof[[1]]
 
 ggpubr::ggarrange(plotlist = plot_list_vascperm_log_nof)
-ggsave("PCA_multi_color_vascperm_log_nofacet.jpeg", scale = 1.1)
+ggsave("PCA_multi_color_vascperm_log_nofacet.jpeg", width = 12, height = 8.46, units = "in")
 # Saving 12 x 8.46 in image
 
 # top loadings 

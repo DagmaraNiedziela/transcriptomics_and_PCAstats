@@ -290,7 +290,168 @@ ggsave("top_10_genes_vaso_sep.jpeg")
 # font italics doesn't work, Ubuntu does not have the fonts working, would need to install 
 
 
-# ** Differential expression, Group x Vasopressors #### 
+# Differential expression, Group  #### 
 
+# Clean up metadata 
 
+dds_group <- DESeqDataSetFromMatrix(countData = Kalantar_counts_intersected,
+                                   colData = Kalantar_metadata, 
+                                   design = ~ group) 
 
+nrow(dds_group) #27097 
+
+# Outliers remove 
+keep <- rowSums(counts(dds_group)) >= 10
+dds_group <- dds_group[keep,]
+nrow(dds_group) 
+#[1] 27065 
+
+# DESeq 
+
+dds_group <- estimateSizeFactors(dds_group) 
+dds_group <- DESeq(dds_group)
+
+resultsNames(dds_group) 
+results_group_bsivsnonbsi <- results(dds_group, contrast=c("group","SepsisBSI","SepsisNon-BSI"))
+results_group_bsivsnosep <- results(dds_group, name="group_SepsisBSI_vs_No.Sepsis")
+results_group_nonbsivsnosep <- results(dds_group, name="group_SepsisNon.BSI_vs_No.Sepsis")
+
+# MA plot 
+plotMA(results_group_bsivsnonbsi, ylim=c(-2,2))
+plotMA(results_group_bsivsnosep, ylim=c(-2,2))
+plotMA(results_group_nonbsivsnosep, ylim=c(-2,2))
+
+plotMA(results_group_bsivsnonbsi_shrink, ylim=c(-2,2))
+plotMA(results_group_bsivsnosep_shrink, ylim=c(-2,2))
+plotMA(results_group_nonbsivsnosep_shrink, ylim=c(-2,2))
+
+# Shrinkage 
+
+results_group_bsivsnonbsi_shrink <- lfcShrink(dds_group, contrast = c("group", "SepsisBSI", "SepsisNon-BSI"), type="ashr")
+results_group_bsivsnosep_shrink <- lfcShrink(dds_group, coef="group_SepsisBSI_vs_No.Sepsis", type="ashr")
+results_group_nonbsivsnosep_shrink <- lfcShrink(dds_group, coef="group_SepsisNon.BSI_vs_No.Sepsis", type="ashr")
+
+# Annotate and export results 
+
+results_group_bsivsnonbsi_shrink <- annotate_genes(results_group_bsivsnonbsi_shrink)
+results_group_bsivsnosep_shrink <- annotate_genes(results_group_bsivsnosep_shrink)
+results_group_nonbsivsnosep_shrink <- annotate_genes(results_group_nonbsivsnosep_shrink)
+# results_group_bsivsnonbsi_shrink
+
+# Check DE gene numbers 
+
+sum(results_group_bsivsnonbsi_shrink$padj < 0.05, na.rm=TRUE) # 3757
+sum(results_group_bsivsnosep_shrink$padj < 0.05, na.rm=TRUE) # 6162 
+sum(results_group_nonbsivsnosep_shrink$padj < 0.05, na.rm=TRUE) # 1333 
+
+writexl::write_xlsx(list(bsi_nonbsi_all = as.data.frame(results_group_bsivsnonbsi_shrink), 
+                         bsi_nonbsi_sig = as.data.frame(subset(results_group_bsivsnonbsi_shrink, padj < 0.05)),
+                         bsi_nosep_all = as.data.frame(results_group_bsivsnosep_shrink), 
+                         bsi_nosep_sig = as.data.frame(subset(results_group_bsivsnosep_shrink, padj < 0.05)),
+                        nonbsi_nosep_all = as.data.frame(results_group_nonbsivsnosep_shrink), 
+                        nonbsi_nosep_sig = as.data.frame(subset(results_group_nonbsivsnosep_shrink, padj < 0.05))), 
+                    "Kalantar_differential_expression_group.xlsx")
+
+# Top genes 
+
+res_top10_group1 <- make_top_genes(results_group_bsivsnonbsi_shrink, rep_name = "bsi_nonbsi")
+res_top10_group2 <- make_top_genes(results_group_bsivsnosep_shrink, rep_name = "bsi_nosep")
+res_top10_group3 <- make_top_genes(results_group_nonbsivsnosep_shrink, rep_name = "nonbsi_nosep")
+res_top10_group <- rbind(res_top10_group1, res_top10_group2, res_top10_group3)
+
+# Plot top genes 
+
+ggplot(data = res_top10_group) + 
+  geom_point(mapping = aes(x = condition, y = log2FoldChange, color = Direction, group = Direction)) + 
+  scale_color_brewer(palette = "Set1", name="Direction", breaks = c("Up", "Down"), labels=c("Upregulated", "Downregulated"), direction = -1) + 
+  xlab("Condition") + ylab("Log2 fold change") + 
+  geom_hline(mapping = aes(yintercept = 0), linetype = "dotted", size = 1) + 
+  ggrepel::geom_text_repel(mapping = aes(x = condition, y = log2FoldChange, group = Direction, label = gene_symbol2), fontface = "italic", max.overlaps = Inf) +
+  ggtitle("Top 10 most significant genes - all groups")
+
+ggsave("top_10_genes_group.jpeg") 
+# Saving 6.65 x 5.15 in image
+# font italics doesn't work, Ubuntu does not have the fonts working, would need to install 
+
+# Differential expression - vasopressors, remove sepsis group #### 
+
+# Remove samples with specific group in counts 
+no_sepsis_samples <- Kalantar_metadata$id2[Kalantar_metadata$group == "No-Sepsis"]
+
+Kalantar_counts_nosepsis <- Kalantar_counts_intersected %>% 
+  dplyr::select(all_of(no_sepsis_samples))
+ncol(Kalantar_counts_nosepsis) # 92
+
+# Remove samples in coldata 
+
+Kalantar_metadata_nosepsis <- Kalantar_metadata %>% filter(group == "No-Sepsis") 
+nrow(Kalantar_metadata_nosepsis) # 92 
+
+# check order of samples 
+colnames(Kalantar_counts_nosepsis)
+Kalantar_metadata_nosepsis$id2
+colnames(Kalantar_counts_nosepsis) == Kalantar_metadata_nosepsis$id2
+
+# Object 
+dds_vaso_nosep <- DESeqDataSetFromMatrix(countData = Kalantar_counts_nosepsis,
+                                       colData = Kalantar_metadata_nosepsis, 
+                                       design = ~ on_pressors) 
+
+nrow(dds_vaso_nosep) #27097 
+
+# Outliers remove 
+keep <- rowSums(counts(dds_vaso_nosep)) >= 10
+dds_vaso_nosep <- dds_vaso_nosep[keep,]
+nrow(dds_vaso_nosep) 
+#[1] 26986  
+
+# DESeq 
+
+dds_vaso_nosep <- estimateSizeFactors(dds_vaso_nosep) 
+dds_vaso_nosep <- DESeq(dds_vaso_nosep)
+
+resultsNames(dds_vaso_nosep) 
+results_vaso_nosep <- results(dds_vaso_nosep, name="on_pressors_yes_vs_no")
+
+# MA plot 
+plotMA(results_vaso_nosep, ylim=c(-2,2))
+
+plotMA(results_vaso_nosep_shrink, ylim=c(-2,2))
+
+# Shrinkage 
+
+results_vaso_nosep_shrink <- lfcShrink(dds_vaso_nosep, coef="on_pressors_yes_vs_no", type="apeglm")
+# will use these 
+
+results_vaso_nosep_shrink
+
+# Annotate and export results 
+
+results_vaso_nosep_shrink <- annotate_genes(results_vaso_nosep_shrink)
+
+# Check DE gene numbers 
+
+sum(results_vaso_nosep_shrink$padj < 0.4, na.rm=TRUE) # 13
+
+writexl::write_xlsx(list(nosepsis_all = as.data.frame(results_vaso_nosep_shrink), 
+                         nosepsis_sig = as.data.frame(subset(results_vaso_nosep_shrink, padj < 0.05))), 
+                    "Kalantar_differential_expression_nosepsis.xlsx")
+
+# Top genes 
+
+res_top10_nosep <- make_top_genes(results_vaso_nosep_shrink, rep_name = "nosepsis")
+res_top10_nosep
+
+# Plot top genes 
+
+ggplot(data = res_top10_nosep) + 
+  geom_point(mapping = aes(x = condition, y = log2FoldChange, color = Direction, group = Direction)) + 
+  scale_color_brewer(palette = "Set1", name="Direction", breaks = c("Up", "Down"), labels=c("Upregulated", "Downregulated"), direction = -1) + 
+  xlab("Condition") + ylab("Log2 fold change") + 
+  geom_hline(mapping = aes(yintercept = 0), linetype = "dotted", size = 1) + 
+  ggrepel::geom_text_repel(mapping = aes(x = condition, y = log2FoldChange, group = Direction, label = gene_symbol2), fontface = "italic", max.overlaps = Inf) +
+  ggtitle("Top 10 most significant genes - no sepsis")
+
+ggsave("top_10_genes_nosep.jpeg") 
+# Saving 6.65 x 5.15 in image
+# font italics doesn't work, Ubuntu does not have the fonts working, would need to install 

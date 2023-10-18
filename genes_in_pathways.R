@@ -2,6 +2,7 @@
 library(dplyr)
 library(pheatmap)
 library("biomaRt")
+library(ggplot2)
 
 # Prepare data #### 
 
@@ -76,3 +77,90 @@ Cairo(file="neutrophil_heatmap.png",
       dpi=600)
 neutrophil_heatmap
 dev.off() 
+
+# Geom_tile - get genes within GO terms #### 
+
+head(specific_pathways)
+
+specific_pathways %>% filter(source == "GO:BP") 
+
+strsplit(specific_pathways$intersection,",")  # that makes it a list of character vectors 
+
+specific_pathways$intersection[1]
+unlist(strsplit(specific_pathways$intersection[1],","))
+
+# Need a long format data frame with GO term and genes for each term 
+
+GO_BP_genes <- specific_pathways %>% filter(source == "GO:BP") %>% 
+  select(term_id, intersection_size, term_name, intersection)
+
+# GO_BP_genes$new_intersection <- strsplit(GO_BP_genes$intersection,",")
+# GO_BP_genes$new_intersection # it is a list of vectors 
+
+colnames(GO_BP_genes)
+
+# GO_BO_genes_long <- GO_BP_genes %>% tidyr::separate_rows(new_intersection, convert = TRUE) 
+# GO_BO_genes_long$new_intersection[1:50]
+
+GO_BO_genes_long <- GO_BP_genes %>% mutate(intersection = stringr::str_split(intersection, ",")) %>% 
+  unnest(cols = c(intersection)) # stringr::str_split
+
+# Get a gene_symbol column 
+library(org.Hs.eg.db)
+
+GO_BO_genes_long$gene_symbol <- mapIds(
+  org.Hs.eg.db, # Replace with annotation package for your organism
+  keys = GO_BO_genes_long$intersection,
+  keytype = "ENSEMBL", # Replace with the type of gene identifiers in your data
+  column = "SYMBOL", # The type of gene identifiers you would like to map to
+  multiVals = "first"
+)
+
+length(unique(GO_BO_genes_long$gene_symbol)) # 903 
+
+
+# Plot with geom_tile 
+
+plot <- ggplot(GO_BO_genes_long, aes(x = gene_symbol, y = term_name, fill= intersection_size)) + 
+  geom_tile(colour = "black") + xlab("") + ylab("") +
+  theme(axis.text.x = element_text(angle = 90))+
+  scale_y_discrete(limits = rev(levels(factor(GO_BO_genes_long$term_name)))) +
+#  scale_fill_discrete(na.value = 'white') +
+  scale_color_discrete(na.value = 'black')
+
+plot
+
+ggsave("GO_BP_genes_overlapping.jpeg", width = 13, height = 10, units = "in")
+
+# ** Interactive plot #### 
+plotly_geomtile <- plotly::ggplotly(plot)
+file_name <- "GO_BP_genes_heatmap"
+save_directory <- "plotly_plots"
+
+htmlwidgets::saveWidget(widget = plotly_geomtile, 
+                        file = glue::glue("{save_directory}/{file_name}.html"), 
+                        selfcontained = FALSE, 
+                      #  libdir = glue::glue("{save_directory}/{library_name}"), 
+                        title = file_name)
+?htmlwidgets::saveWidget
+
+GO_BO_genes_long %>% filter(intersection_size < 100) %>% 
+  ggplot(aes(x = gene_symbol, y = term_name, fill= intersection_size)) + 
+  geom_tile(colour = "black") + xlab("") + ylab("") +
+  scale_y_discrete(limits = rev(levels(factor(GO_BO_genes_long$term_name)))) +
+  theme(axis.text.x = element_text(angle = 90))+
+  #  scale_fill_discrete(na.value = 'white') +
+  scale_color_discrete(na.value = 'black') 
+
+ggsave("GO_BP_smaller_pathways.jpeg", width = 28, height = 10, units = "in")
+
+# smaller pathways but also remove non-common genes - TO DO 
+GO_BO_genes_long %>% filter(intersection_size < 50) %>% 
+  ggplot(aes(x = gene_symbol, y = term_name, fill= intersection_size)) + 
+  geom_tile(colour = "black") + xlab("") + ylab("") +
+  scale_y_discrete(limits = rev(levels(factor(GO_BO_genes_long$term_name)))) +
+  theme(axis.text.x = element_text(angle = 90))+
+  #  scale_fill_discrete(na.value = 'white') +
+  scale_color_discrete(na.value = 'black') 
+
+ggsave("GO_BP_smallest_pathways.jpeg", width = 28, height = 10, units = "in")

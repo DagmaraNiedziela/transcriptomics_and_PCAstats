@@ -182,15 +182,16 @@ top_genes_laterpcs$gene[with(top_genes_laterpcs, order(-top_genes_laterpcs[["PC1
 #' @param pc a string - PC and number 
 #' @param a string, values "positive" or "negative" for positive and negative loadings respectively 
 #' @param mart a dataset from biomart, preloaded (mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl")))
+#' @param number an integer, number of loading genes to get, default is 20, but for other analyses I might need more
 #' mart should be pre-loaded for this function
 #' 
 #' @return a csv file with + a data frame result 
-get_loadings_gene_list <- function(pca_data, pc, direction, mart = mart){
+get_loadings_gene_list <- function(pca_data, pc, direction, mart = mart, number = 20){
   if (direction == "positive"){
-    top_loadings <- pca_data$gene[with(pca_data, order(-pca_data[[pc]]))][1:20]
+    top_loadings <- pca_data$gene[with(pca_data, order(-pca_data[[pc]]))][1:number]
   }
   else {
-    top_loadings <- pca_data$gene[with(pca_data, order(pca_data[[pc]]))][1:20]
+    top_loadings <- pca_data$gene[with(pca_data, order(pca_data[[pc]]))][1:number]
   }
   # fix gene names 
   top_loadings <- gsub("\\.\\d{2,2}$", "", top_loadings)
@@ -263,7 +264,7 @@ gene_names_pc15_neg
 #' @param counts_data a counts data frame with samples as columns and genes as additional column geneId 
 #' (ensembl id) and hgnc_symbol (gene symbol)
 #' @param pca_data a data frame like pc_scores_toplot - contains pcs, metadata, and sample name column named as "id2"
-#' @param loadings_pc_data the gene_names for pc loadings - returned data frame of the get_loadings_gene_list function
+#' @param loadings_pc_names the gene_names for pc loadings - returned data frame of the get_loadings_gene_list function
 #' 
 #' @return a data frame with genes with top loadings and medatata - to plot on a PCA plot colored by gene count 
 make_loadings_pcadata <- function(counts_data, pca_data, loadings_pc_names){
@@ -294,7 +295,7 @@ make_loadings_pcadata <- function(counts_data, pca_data, loadings_pc_names){
 # stringi::stri_remove_empty(gene_names_pc8_neg$hgnc_symbol)
 
 
-# pc8 
+# pc8 - this can be done using fucntion above 
 Kalantar_counts_loadings_pc8 <- Kalantar_counts_fornames %>% 
   filter(hgnc_symbol %in% gene_names_pc8$hgnc_symbol)
 
@@ -325,7 +326,7 @@ PCAdata_loadings_pc8[, gene_names_pc8$hgnc_symbol] <- lapply(gene_names_pc8$hgnc
 # Log transform counts 
 PCAdata_loadings_pc8[, gene_names_pc8$hgnc_symbol] <- lapply(gene_names_pc8$hgnc_symbol, function(x) log10(PCAdata_loadings_pc8[[x]] + 1))
 
-# pc15 
+# pc15 - this all can be done using a function above now 
 Kalantar_counts_loadings_pc15 <- Kalantar_counts_fornames %>% 
   filter(hgnc_symbol %in% gene_names_pc15$hgnc_symbol)
 
