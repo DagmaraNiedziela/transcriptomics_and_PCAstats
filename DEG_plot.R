@@ -1,27 +1,6 @@
 library(dplyr)
 
-#' Function to generate a plot of differentially expressed genes 
-#' 
-#' @param results_object a list of results objects that we should count DEGs in - shrunk or not 
-#' @param grouping a string for grouping on the plot x axis (time, or other group that is used)
-#' @param padj adjusted p value cut-off 
-#' @param lfc log2foldchange cut-off for up- and downregulated genes 
-#' 
-#' @return gene_counts - a data frame 
-count_deg_numbers <- function(results_object = NULL, grouping = NULL,
-                              padj = 0.05, lfc = 0){
-  
-  a <- nrow(subset(results_object, padj < 0.05 & log2FoldChange > lfc))
-  b <- nrow(subset(results_object, padj < 0.05 & log2FoldChange < lfc))
-  count <- c(a,b)
-  count <- as.numeric(as.character(count))
-  direction <- c("Up", "Down")
-  condition <- rep(grouping, 2)
-  
-  genecounts <- data.frame(condition, direction, count)
-  return(genecounts)
-
-}
+source("functions_PCA-transcriptomics.R") 
 
 results_vaso_sepsis_nonbsi_cond_shrink 
 results_vaso_no_sepsis_cond_shrink
