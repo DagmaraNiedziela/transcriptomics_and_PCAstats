@@ -4,10 +4,9 @@ library(dplyr)
 library(ggplot2)
 library(readxl)
 library("biomaRt")
-# BiocManager::install("apeglm")
 library(apeglm)
-# BiocManager::install("org.Hs.eg.db", update = FALSE)
 library(org.Hs.eg.db)
+source("functions_PCA-transcriptomics.R")
 
 # Differential expression - vasopressors only #### 
 
@@ -146,31 +145,6 @@ results_vaso_no_sepsis_cond_shrink <- lfcShrink(dds_condition, coef="condition_N
 
 # Annotate genes 
 
-annotate_genes <- function(results_shrunk){
-  rownames(results_shrunk) <- gsub("\\.\\d{2,2}$", "", rownames(results_shrunk))
-  rownames(results_shrunk) <- gsub("\\.\\d{1,1}$", "", rownames(results_shrunk))
-
-  results_shrunk$gene_symbol <- mapIds(
-    org.Hs.eg.db, # Replace with annotation package for your organism
-    keys = rownames(results_shrunk),
-    keytype = "ENSEMBL", # Replace with the type of gene identifiers in your data
-    column = "SYMBOL", # The type of gene identifiers you would like to map to
-    multiVals = "first"
-  )
-
-  results_shrunk$gene_name <- mapIds(
-    org.Hs.eg.db, # Replace with annotation package for your organism
-    keys = rownames(results_shrunk),
-    keytype = "ENSEMBL", # Replace with the type of gene identifiers in your data
-    column = "GENENAME", # The type of gene identifiers you would like to map to
-    multiVals = "first"
-  )
-  
-  results_shrunk$ensembl_id <- rownames(results_shrunk)
-  return(results_shrunk)
-  
-}
-
 results_vaso_sepsis_nonbsi_cond_shrink <- annotate_genes(results_vaso_sepsis_nonbsi_cond_shrink)
 results_vaso_no_sepsis_cond_shrink <- annotate_genes(results_vaso_no_sepsis_cond_shrink)
 
@@ -192,31 +166,6 @@ writexl::write_xlsx(list(nonbsi_all = as.data.frame(results_vaso_sepsis_nonbsi_c
 # Plot top genes #### 
 
 head(as.data.frame(results_vaso_shrink_DEG))
-
-#' make_top_genes 
-#' function to generate a data frame of top genes for a results table - one per result, can be rbound after
-#' @param results_shrunk a deseq results object generated using results function and lfcShrink 
-#' @param rep_name a string, name I would like 
-#' @param ngenes an integer, to change the number of repetitions of the label - sometimes top_n gives more or less than 10 
-#' results because some genes are the same padj 
-#' 
-#' @return res_top10 a data frame with top10 up and down regulated genes by padj, and their log2 fold changes 
-#' for a top10 genes plot 
-make_top_genes <- function(results_shrunk, rep_name, ngenes = 10){
-  res_top10_up <- as.data.frame(results_shrunk) %>% filter(log2FoldChange > 0) %>% top_n(-10, padj) %>% dplyr::select(-baseMean, -lfcSE, -pvalue) %>% 
-    tibble::add_column(condition = (rep(rep_name,ngenes)), Direction = rep("Up", ngenes)) 
-  # AT 0 WPI there is only 1 gene up, so change the new vectors to 1  
-  res_top10_down <- as.data.frame(results_shrunk) %>% filter(log2FoldChange < 0) %>% top_n(-10, padj) %>% dplyr::select(-baseMean, -lfcSE, -pvalue) %>% 
-    tibble::add_column(condition = (rep(rep_name,ngenes)), Direction = rep("Down", ngenes))
-  
-  res_top10 <- rbind(res_top10_up, res_top10_down)
-  res_top10 <- res_top10 %>%
-    mutate(gene_symbol2 = coalesce(gene_symbol, rownames(.))) # this could fail - as.data.frame will remove rownames? 
-  res_top10 
-  res_top10$log2FoldChange <- as.numeric(as.character(res_top10$log2FoldChange))
-  
-  return(res_top10)
-}
 
 res_top10_sepsis_nonbsi_cond <- make_top_genes(results_vaso_sepsis_nonbsi_cond_shrink, rep_name = "sepsis_non_bsi_yes_vs_no")
 res_top10_no_sepsis_cond <- make_top_genes(results_vaso_no_sepsis_cond_shrink, rep_name = "no_sepsis_yes_vs_no")
